@@ -9,19 +9,44 @@
 static void * routine(void * args)
 {
 	int sock = *(int *)args;
-	int szpath;
-	char * spath;
+	int szpath, szfile = -1, i = 0;
+	char * spath, * sfile, c;
+	FILE * file;
 	
-	sleep(3);
+	/*sleep(3);*/
 	printf("Child routine. Args : %d\n", sock);
 	
+	/* recieve path */
 	read(sock, &szpath, sizeof(int));
 	printf("Given size : %d\n", szpath);
 	spath = calloc(szpath, sizeof(char));
 	read(sock, spath, szpath);
 	printf("Given string : %s\n", spath);
-	free(spath);
 	
+	/* read file */
+	file = fopen(spath, "r");
+	if (file) {
+		fseek(file, 0, SEEK_END);
+		szfile = ftell(file);
+		rewind(file);
+		sfile = (char *)calloc(szfile + 1, sizeof(char));
+		printf("Size : %d\n", szfile);
+		while (fscanf(file, "%c", &c) == 1) {
+			sfile[i] = c;
+			++ i;
+		}
+	} else {
+	}
+	/* send file */
+	write(sock, &szfile, sizeof(int));
+	write(sock, sfile, szfile);
+	
+	/* clean */
+	if (file) {
+		free(sfile);
+		fclose(file);
+	}
+	free(spath);
 	free(args);
 	close(sock);
 	return 0;

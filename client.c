@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -8,8 +9,8 @@ int main(int argc, char *argv[])
 {
 	char * name = "thesocketname";
 	int sock;
-	char s[70];
-	int sz;
+	char s[70], * sfile;
+	int sz, szfile;
 	struct sockaddr_un serv_addr;
 	
 	/* socket */
@@ -32,11 +33,20 @@ int main(int argc, char *argv[])
 	}
 	
 	/* interaction */
+	/* send path */
 	scanf("%s", s);
 	sz = strlen(s) + 1;
 	write(sock, &sz, sizeof(int));
 	write(sock, s, sz);
 	
+	/* recieve file */
+	read(sock, &szfile, sizeof(int));
+	sfile = (char *)malloc(szfile);
+	read(sock, sfile, szfile);
+	
+	printf("File :\n%s", sfile);
+	
+	free(sfile);
 	/* close */
 	close(sock);
 	
