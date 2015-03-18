@@ -1,32 +1,33 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/un.h>
-#include <string.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
 
 int main(int argc, char *argv[])
 {
-	char * name = "thesocketname";
 	int sock;
 	char s[70], * sfile;
 	int sz, szfile;
-	struct sockaddr_un serv_addr;
+	struct sockaddr_in serv_addr;
 	
 	/* socket */
-	sock = socket(AF_LOCAL, SOCK_STREAM, 0);
+	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock == -1) {
 		printf("Socket creation error.\n");
 		return 0;
 	}
 	
 	/* serv_addr */
-	memset(&serv_addr, 0, sizeof(struct sockaddr_un));
-	serv_addr.sun_family = AF_LOCAL;
-	strncpy(serv_addr.sun_path, name, sizeof(serv_addr.sun_path) - 1);
+	memset(&serv_addr, 0, sizeof(struct sockaddr_in));
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_addr.s_addr = inet_addr(argv[1]);
+        serv_addr.sin_port = htons(atoi(argv[2]));
 	
 	/* bind */
-	if (connect(sock, (struct sockaddr *) &serv_addr, SUN_LEN(&serv_addr)) == -1) {
+	if (connect(sock, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) == -1) {
 		printf("Socket connection error.\n");
 		close(sock);
 		return 0;
@@ -41,12 +42,15 @@ int main(int argc, char *argv[])
 	
 	/* recieve file */
 	read(sock, &szfile, sizeof(int));
-	sfile = (char *)malloc(szfile);
-	read(sock, sfile, szfile);
+	if (szfile != -1) {
+		sfile = (char *)malloc(szfile);
+		read(sock, sfile, szfile);
+		printf("File :\n%s", sfile);
+		free(sfile);
+	} else {
+		printf("No file.\n");
+	}
 	
-	printf("File :\n%s", sfile);
-	
-	free(sfile);
 	/* close */
 	close(sock);
 	

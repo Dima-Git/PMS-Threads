@@ -1,10 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/un.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
 
 static void * routine(void * args)
 {
@@ -13,7 +15,7 @@ static void * routine(void * args)
 	char * spath, * sfile, c;
 	FILE * file;
 	
-	/*sleep(3);*/
+	/*sleep(3); */
 	printf("Child routine. Args : %d\n", sock);
 	
 	/* recieve path */
@@ -39,7 +41,9 @@ static void * routine(void * args)
 	}
 	/* send file */
 	write(sock, &szfile, sizeof(int));
-	write(sock, sfile, szfile);
+	if (szfile != -1) {
+		write(sock, sfile, szfile);
+	}
 	
 	/* clean */
 	if (file) {
@@ -52,25 +56,26 @@ static void * routine(void * args)
 	return 0;
 }
 
-static int create_named_local_socket(char * name)
+static int create_tcp_socket(char * port)
 {
 	int sock;
-	struct sockaddr_un serv_addr;
+	struct sockaddr_in serv_addr;
 	
 	/* socket */
-	sock = socket(AF_LOCAL, SOCK_STREAM, 0);
+	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock == -1) {
 		printf("Socket creation error.\n");
 		return -1;
 	}
 	
 	/* serv_addr */
-	memset(&serv_addr, 0, sizeof(struct sockaddr_un));
-	serv_addr.sun_family = AF_LOCAL;
-	strncpy(serv_addr.sun_path, name, sizeof(serv_addr.sun_path) - 1);
+	memset(&serv_addr, 0, sizeof(struct sockaddr_in));
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_port = htons(atoi(port));
+	serv_addr.sin_addr.s_addr= htonl(INADDR_ANY);
 	
 	/* bind */
-	if (bind(sock, (struct sockaddr *) &serv_addr, SUN_LEN(&serv_addr)) == -1) {
+	if (bind(sock, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) == -1) {
 		printf("Socket bindind error.\n");
 		return -1;
 	}
@@ -83,18 +88,17 @@ static int create_named_local_socket(char * name)
 
 int main(int argc, char *argv[])
 {
-	char * name = "thesocketname";
 	int sock, i;
 	
 	/* socket bind listen */
-	sock = create_named_local_socket(name);
+	sock = create_tcp_socket(argv[1]);
 	if (sock == -1)
 		return 1;
 	
 	for (i = 0; i < 3; ++ i) {
 		/* accept */
 		int * pclient_sock = (int *)malloc(sizeof(int));
-		struct sockaddr_un client_addr;
+		struct sockaddr_in client_addr;
 		pthread_t pt;
 		int p;
 		
@@ -123,7 +127,6 @@ int main(int argc, char *argv[])
 	
 	/* close & unlink */
 	close(sock);
-	unlink(name);
 	
 	return 0;
 }
